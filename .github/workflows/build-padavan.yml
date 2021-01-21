@@ -66,6 +66,8 @@ jobs:
 
     - name: Generate release tag
       id: tag
+      env:
+        TNAME: ${{ github.event.inputs.name }}
       if: steps.build.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
       run: |
         echo "::set-output name=release_tag::$TNAME-$(date +"%Y.%m.%d-%H%M")"
@@ -98,6 +100,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: WeChat Notification
+      env:
+        TNAME: ${{ github.event.inputs.name }}
       if: steps.build.outputs.status == 'success' && !cancelled()
       run: |
         curl https://sc.ftqq.com/${{ secrets.SCKEY }}.send?text="$TNAME"_Padavan编译完成
