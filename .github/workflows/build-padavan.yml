@@ -4,13 +4,12 @@ on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
-      config_name:
+      name:
         description: '输入机型名称，并且要存在此机型配置文件'
         required: true
         default: 'RM2100'
 
 env:
-  TNAME: ${{ github.event.inputs.config_name }}
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
 
@@ -34,16 +33,24 @@ jobs:
 
     - name: Clone source code
       run: |
-        git clone --depth=1 https://github.com/chongshengB/rt-n56u /opt/rt-n56u
+        git clone --depth=1 https://github.com/chongshengB/rt-n56u.git /opt/rt-n56u
         cd /opt/rt-n56u/toolchain-mipsel
         sh dl_toolchain.sh
         mkdir -p /opt/images/
 
     - name: Build Firmware
       id: build
+      env:
+        TNAME: ${{ github.event.inputs.name }}
       run: |
         cd /opt/rt-n56u/trunk
-        cp -f $GITHUB_WORKSPACE/$TNAME.config .config
+        if [ ! -f configs/templates/$TNAME.config ] ; then
+        echo "configs/templates/$TNAME.config not found "
+        exit 1
+        fi
+        cp -f configs/templates/$TNAME.config .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        $GITHUB_WORKSPACE/$TMANE.sh
         sudo ./clear_tree
         sudo ./build_firmware_modify $TNAME 0
         sudo mv -f images/*.trx /opt/images/
