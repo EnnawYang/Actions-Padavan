@@ -32,6 +32,11 @@ jobs:
                libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin
         echo "TNAME=${{ github.event.inputs.name }}" >> $GITHUB_ENV
 
+    - name: Set up Go (For Build V2ray)
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.16.5
+
     - name: Clone source code
       run: |
         git clone --depth=1 https://github.com/EnnawYang/rt-n56u rt-n56u
