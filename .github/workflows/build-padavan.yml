@@ -15,7 +15,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
     - name: Checkout
@@ -26,35 +26,33 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo apt-get update
-        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
-        cpio git python-docutils gettext automake autopoint texinfo build-essential help2man \
-        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
-        sudo timedatectl set-timezone "$TZ"
+        sudo apt install unzip libtool-bin curl cmake gperf gawk flex bison xxd \
+               fakeroot kmod cpio git python3-docutils gettext automake autopoint \
+               texinfo build-essential help2man pkg-config zlib1g-dev libgmp3-dev \
+               libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin
+        echo "TNAME=${{ github.event.inputs.name }}" >> $GITHUB_ENV
 
     - name: Clone source code
       run: |
-        git clone --depth=1 https://github.com/chongshengB/rt-n56u.git /opt/rt-n56u
-        cd /opt/rt-n56u/toolchain-mipsel
+        git clone --depth=1 https://github.com/EnnawYang/rt-n56u rt-n56u
+
+    - name: Prepare toolchain
+      run: |
+        cd $GITHUB_WORKSPACE/rt-n56u/toolchain-mipsel
         sh dl_toolchain.sh
-        mkdir -p /opt/images/
 
     - name: Build Firmware
       id: build
-      env:
-        TNAME: ${{ github.event.inputs.name }}
       run: |
-        cd /opt/rt-n56u/trunk
-        if [ ! -f configs/templates/$TNAME.config ] ; then
-        echo "configs/templates/$TNAME.config not found "
+        cd $GITHUB_WORKSPACE/rt-n56u/trunk
+        if [ ! -f $GITHUB_WORKSPACE/config/$TNAME.config ] ; then
+        echo "$TNAME.config not found"
         exit 1
         fi
-        cp -f configs/templates/$TNAME.config .config
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
-        chmod +x $GITHUB_WORKSPACE/$TNAME.sh
-        $GITHUB_WORKSPACE/$TNAME.sh
-        sudo ./clear_tree
-        sudo ./build_firmware_modify $TNAME 0
-        sudo mv -f images/*.trx /opt/images/
+        cp -f $GITHUB_WORKSPACE/config/$TNAME.config $GITHUB_WORKSPACE/rt-n56u/trunk/configs/templates/$TNAME.config
+        mkdir -p /opt/images
+        fakeroot ./build_firmware_ci $TNAME
+        sudo mv images/*.trx /opt/images/
         echo "::set-output name=status::success"
 
     - name : Upload packages
@@ -66,8 +64,6 @@ jobs:
 
     - name: Generate release tag
       id: tag
-      env:
-        TNAME: ${{ github.event.inputs.name }}
       if: steps.build.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
       run: |
         echo "::set-output name=release_tag::$TNAME-$(date +"%Y.%m.%d-%H%M")"
@@ -99,9 +95,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: WeChat Notification
-      env:
-        TNAME: ${{ github.event.inputs.name }}
+    - name: Notification
       if: steps.build.outputs.status == 'success' && !cancelled()
       run: |
-        curl https://sc.ftqq.com/${{ secrets.SCKEY }}.send?text="$TNAME"_Padavan编译完成
+        curl https://sctapi.ftqq.com/${{ secrets.SCTKEY }}.send?title="$TNAME"_Padavan编译完成
+        curl -s -X POST https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendMessage -d chat_id=${{ secrets.TG_CHAT_ID }} -d text="$TNAME"_Padavan编译完成
